@@ -94,7 +94,7 @@ const moviePosterGroups=[
   {name:'토이 스토리 5',src:'assets/posters/toy-story-5.png'}
  ]}
 ];
-let countChosen=false,image=null,puzzleImage=null,selectedName='',selectedUrl='',selectedKind='예제',selectedFile=null,loadId=0,blobUrl=null,pieces=[],allPieces=[],spawnTimer=null,spawnIndex=0,spawnStartedAt=0,spawning=false,generationId=0,W=1000,H=650,C=0,R=0,cw=0,ch=0,scale=1,ox=0,oy=0,vw=0,vh=0,drag=null,showGuide=true,started=0,finished=false,seed=0,currentUser=null,currentPuzzleId=null,currentImagePath=null,saveTimer=null,saveInFlight=false,saveQueued=false,lastSavedAt=0,connectionContext=null,autoRestoreUserId=null,startupResolved=false;
+let countChosen=false,image=null,puzzleImage=null,selectedName='',selectedUrl='',selectedKind='예제',selectedFile=null,loadId=0,blobUrl=null,pieces=[],allPieces=[],spawnTimer=null,spawnIndex=0,spawnStartedAt=0,spawning=false,generationId=0,W=1000,H=650,C=0,R=0,cw=0,ch=0,scale=1,ox=0,oy=0,vw=0,vh=0,drag=null,showGuide=true,started=0,finished=false,seed=0,currentUser=null,currentPuzzleId=null,currentImagePath=null,saveTimer=null,saveInFlight=false,saveQueued=false,lastSavedAt=0,autoRestoreUserId=null,startupResolved=false;
 function renderLocalCollection(items,galleryId,countId,countLabel){
  const gallery=$(galleryId);$(countId).textContent=`${items.length} ${countLabel}`;if(!items.length)return;gallery.replaceChildren();
  for(const item of items){const button=document.createElement('button');button.className='photo';const imageElement=document.createElement('img');imageElement.src=item.src;imageElement.alt=item.name;imageElement.loading='lazy';const label=document.createElement('span');label.textContent=item.name;button.append(imageElement,label);button.onclick=()=>choose(item.src,item.name,button,'예제');gallery.append(button);}
@@ -246,16 +246,6 @@ async function restoreLastPuzzle(){
  if(!data){localStorage.removeItem(key);return false;}rememberActivePuzzle(data['아이디']);return restorePuzzle(data);
 }
 function finishStartup(restored=false){if(startupResolved)return;startupResolved=true;$('startupLoading').hidden=true;if(!restored){$('play').hidden=true;$('setup').hidden=false;document.body.dataset.screen='setup';}}
-function detectOS(){
- const platform=navigator.userAgentData?.platform||navigator.platform||'',ua=navigator.userAgent;
- if(/Windows/i.test(platform)||/Windows NT/i.test(ua))return 'Windows';if(/Android/i.test(ua))return 'Android';if(/iPhone|iPad|iPod/i.test(ua))return 'iOS';if(/Mac/i.test(platform)||/Mac OS/i.test(ua))return 'macOS';if(/Linux/i.test(platform)||/Linux/i.test(ua))return 'Linux';return platform||'알 수 없음';
-}
-async function collectConnectionContext(){
- if(!currentUser)return null;let edge={};try{const {data,error}=await db.functions.invoke('connection-context',{body:{}});if(error)throw error;edge=data||{};}catch(error){console.error('접속 IP 확인 실패',error);}
- connectionContext={
-  '아이피주소':edge.ip||null,'기기운영체제':detectOS(),'브라우저정보':navigator.userAgent.slice(0,500),'접속국가':edge.country||null,'접속지역':edge.region||null,'접속도시':edge.city||null,'접속시간대':Intl.DateTimeFormat().resolvedOptions().timeZone||null
- };return connectionContext;
-}
 async function createPuzzleRecord(){
  if(!currentUser||currentPuzzleId)return currentPuzzleId;
  const id=crypto.randomUUID();let imagePath=null;
@@ -264,8 +254,7 @@ async function createPuzzleRecord(){
   const ext={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"}[selectedFile.type]||'jpg';imagePath=`${currentUser.id}/${id}/original.${ext}`;
   const {error:uploadError}=await db.storage.from('puzzle-images').upload(imagePath,selectedFile,{contentType:selectedFile.type,upsert:false});if(uploadError)throw uploadError;
  }
- const context=connectionContext||await collectConnectionContext()||{};
- const row={'아이디':id,'사용자아이디':currentUser.id,'퍼즐이름':selectedName,'이미지종류':selectedKind,'이미지주소':selectedKind==='예제'?selectedUrl:null,'이미지파일경로':imagePath,'원본파일이름':selectedKind==='업로드'?selectedFile?.name||null:null,'조각수':count($('count').value),'난수값':seed,'가로세로비율':image.naturalWidth/image.naturalHeight,'생성기버전':1,'퍼즐상태':{'버전':1,'조각들':[],'순서':[]},...context};
+ const row={'아이디':id,'사용자아이디':currentUser.id,'퍼즐이름':selectedName,'이미지종류':selectedKind,'이미지주소':selectedKind==='예제'?selectedUrl:null,'이미지파일경로':imagePath,'원본파일이름':selectedKind==='업로드'?selectedFile?.name||null:null,'조각수':count($('count').value),'난수값':seed,'가로세로비율':image.naturalWidth/image.naturalHeight,'생성기버전':1,'퍼즐상태':{'버전':1,'조각들':[],'순서':[]}};
  const {error}=await db.from('퍼즐저장').insert(row);if(error){if(imagePath)await db.storage.from('puzzle-images').remove([imagePath]);throw error;}
  currentPuzzleId=id;currentImagePath=imagePath;rememberActivePuzzle(id);$('saveState').hidden=false;return id;
 }
@@ -276,8 +265,7 @@ async function savePuzzleNow(){
  try{
   if(!currentPuzzleId)await createPuzzleRecord();
   const placed=allPieces.filter(p=>p.locked).length,elapsed=started?Math.max(0,Date.now()-started):0;
-  const context=connectionContext||await collectConnectionContext()||{};
-  const changes={'퍼즐상태':puzzleState(),'맞춘조각수':placed,'플레이시간밀리초':elapsed,'완성여부':finished,'완성시각':finished?new Date().toISOString():null,...context};
+  const changes={'퍼즐상태':puzzleState(),'맞춘조각수':placed,'플레이시간밀리초':elapsed,'완성여부':finished,'완성시각':finished?new Date().toISOString():null};
   const {error}=await db.from('퍼즐저장').update(changes).eq('아이디',currentPuzzleId);if(error)throw error;
   lastSavedAt=Date.now();$('saveState').textContent='저장됨';$('saveState').classList.add('save-pulse');setTimeout(()=>{$('saveState').textContent='저장';$('saveState').classList.remove('save-pulse');},1200);
  }catch(error){console.error(error);$('gameHint').textContent='저장하지 못했습니다. 인터넷 연결을 확인하고 다시 저장해주세요.';$('saveState').textContent='저장 재시도';}
@@ -404,12 +392,12 @@ $('authButton').onclick=()=>{setMessage('authMessage','');openPanel('auth');};$(
 $('togglePassword').onclick=()=>{const password=$('authPassword'),show=password.type==='password';password.type=show?'text':'password';$('togglePassword').setAttribute('aria-pressed',String(show));$('togglePassword').setAttribute('aria-label',show?'비밀번호 숨기기':'비밀번호 표시');};
 function hasSequentialDigits(password){return (password.match(/\d+/g)||[]).some(run=>{for(let i=0;i<run.length-2;i++){const a=Number(run[i]),b=Number(run[i+1]),c=Number(run[i+2]);if((b===a+1&&c===b+1)||(b===a-1&&c===b-1))return true;}return false;});}
 function validNewPassword(password){if(password.length<8){setMessage('authMessage','비밀번호는 8자 이상 입력해주세요.');return false;}if(hasSequentialDigits(password)){setMessage('authMessage','비밀번호에 연속된 숫자 3개 이상은 사용할 수 없습니다.');return false;}return true;}
-$('authForm').onsubmit=async e=>{e.preventDefault();setMessage('authMessage','로그인 중…');const email=$('authEmail').value.trim(),password=$('authPassword').value;const {error}=await db.auth.signInWithPassword({email,password});if(error){setMessage('authMessage','이메일 또는 비밀번호를 확인해주세요.');return;}await collectConnectionContext();setMessage('authMessage','로그인했습니다.',true);setTimeout(closePanels,500);};
+$('authForm').onsubmit=async e=>{e.preventDefault();setMessage('authMessage','로그인 중…');const email=$('authEmail').value.trim(),password=$('authPassword').value;const {error}=await db.auth.signInWithPassword({email,password});if(error){setMessage('authMessage','이메일 또는 비밀번호를 확인해주세요.');return;}setMessage('authMessage','로그인했습니다.',true);setTimeout(closePanels,500);};
 const googleLoginButton=document.createElement('button');googleLoginButton.id='googleLoginButton';googleLoginButton.className='google-login';googleLoginButton.type='button';googleLoginButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.5-.2-2.2H12v4.3h5.4a4.6 4.6 0 0 1-2 3v2.8h3.2c1.9-1.8 3-4.4 3-7.9Z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.8c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.9A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.4 13.7a6 6 0 0 1 0-3.5V7.4H3.1a10 10 0 0 0 0 9.2l3.3-2.9Z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.7 9.7 0 0 0 3.1 7.4l3.3 2.8c.8-2.3 3-4 5.6-4Z"/></svg><span>Google로 계속하기</span>';const authDivider=document.createElement('div');authDivider.className='auth-divider';authDivider.innerHTML='<span>또는</span>';$('authForm').before(googleLoginButton,authDivider);googleLoginButton.onclick=async()=>{setMessage('authMessage','Google 로그인 페이지로 이동합니다…');const {error}=await db.auth.signInWithOAuth({provider:'google',options:{redirectTo:`${window.location.origin}/`,queryParams:{prompt:'select_account'}}});if(error)setMessage('authMessage','Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.');};
-$('signupButton').onclick=async()=>{const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!$('authEmail').reportValidity())return;if(!validNewPassword(password)){$('authPassword').focus();return;}setMessage('authMessage','계정을 만드는 중…');const {data,error}=await db.auth.signUp({email,password,options:{data:{service_name:'퍼즐 스튜디오'}}});if(error){setMessage('authMessage',error.message);return;}if(!data.session){setMessage('authMessage','이메일 확인이 켜져 있어 바로 로그인할 수 없습니다. 수파베이스에서 이메일 확인을 꺼주세요.');return;}await collectConnectionContext();setMessage('authMessage','계정을 만들고 로그인했습니다.',true);setTimeout(closePanels,500);};
-$('logoutButton').onclick=async()=>{if(currentPuzzleId)await savePuzzleNow();const {error}=await db.auth.signOut();if(error){setMessage('authMessage','로그아웃하지 못했습니다.');return;}connectionContext=null;closePanels();};
+$('signupButton').onclick=async()=>{const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!$('authEmail').reportValidity())return;if(!validNewPassword(password)){$('authPassword').focus();return;}setMessage('authMessage','계정을 만드는 중…');const {data,error}=await db.auth.signUp({email,password,options:{data:{service_name:'퍼즐 스튜디오'}}});if(error){setMessage('authMessage',error.message);return;}if(!data.session){setMessage('authMessage','이메일 확인이 켜져 있어 바로 로그인할 수 없습니다. 수파베이스에서 이메일 확인을 꺼주세요.');return;}setMessage('authMessage','계정을 만들고 로그인했습니다.',true);setTimeout(closePanels,500);};
+$('logoutButton').onclick=async()=>{if(currentPuzzleId)await savePuzzleNow();const {error}=await db.auth.signOut();if(error){setMessage('authMessage','로그아웃하지 못했습니다.');return;}closePanels();};
 $('saveState').onclick=savePuzzleNow;
-db.auth.onAuthStateChange((event,session)=>{currentUser=session?.user||null;refreshAuthUI();if(currentUser)setTimeout(()=>{collectConnectionContext();if(startupResolved&&event==='SIGNED_IN')restoreLastPuzzle();},0);else autoRestoreUserId=null;});
-db.auth.getSession().then(async({data})=>{currentUser=data.session?.user||null;refreshAuthUI();let restored=false;if(currentUser){collectConnectionContext();restored=await restoreLastPuzzle();}finishStartup(restored);}).catch(error=>{console.error('시작 상태 확인 실패',error);finishStartup(false);});
+db.auth.onAuthStateChange((event,session)=>{currentUser=session?.user||null;refreshAuthUI();if(currentUser)setTimeout(()=>{if(startupResolved&&event==='SIGNED_IN')restoreLastPuzzle();},0);else autoRestoreUserId=null;});
+db.auth.getSession().then(async({data})=>{currentUser=data.session?.user||null;refreshAuthUI();let restored=false;if(currentUser)restored=await restoreLastPuzzle();finishStartup(restored);}).catch(error=>{console.error('시작 상태 확인 실패',error);finishStartup(false);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&currentPuzzleId)scheduleSave(0);});
 setInterval(()=>{if(!started||finished)return;$('time').textContent=formatTime(Date.now()-started);},1000);resize();refreshAuthUI();
