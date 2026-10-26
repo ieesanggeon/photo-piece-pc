@@ -280,11 +280,18 @@ async function loadLibrary(){
  if(!data.length){const empty=document.createElement('p');empty.className='empty-list';empty.textContent='아직 저장한 퍼즐이 없습니다.';$('puzzleList').append(empty);return;}
  for(const row of data){
   const card=document.createElement('article');card.className='puzzle-card';const img=document.createElement('img');img.className='puzzle-thumb';img.alt='';try{img.src=await imageUrlForPuzzle(row);}catch{img.alt='이미지를 불러오지 못함';}
-  const body=document.createElement('div'),title=document.createElement('h3'),meta=document.createElement('p'),actions=document.createElement('div'),resume=document.createElement('button'),remove=document.createElement('button');
+  const body=document.createElement('div'),title=document.createElement('h3'),meta=document.createElement('p'),actions=document.createElement('div'),resume=document.createElement('button'),rename=document.createElement('button'),remove=document.createElement('button');
   title.textContent=row['퍼즐이름'];meta.className='puzzle-meta';meta.textContent=`${row['조각수']}피스 · ${row['맞춘조각수']}/${row['조각수']} · ${row['완성여부']?'완성':'진행 중'} · ${new Date(row['수정시각']).toLocaleDateString('ko-KR')}`;
-  actions.className='puzzle-actions';resume.textContent=row['완성여부']?'다시 보기':'이어하기';resume.onclick=()=>restorePuzzle(row);remove.textContent='삭제';remove.className='danger';remove.onclick=()=>deletePuzzle(row);
-  actions.append(resume,remove);body.append(title,meta,actions);card.append(img,body);$('puzzleList').append(card);
+  actions.className='puzzle-actions';resume.textContent=row['완성여부']?'다시 보기':'이어하기';resume.onclick=()=>restorePuzzle(row);rename.textContent='이름 변경';rename.onclick=()=>renamePuzzle(row);remove.textContent='삭제';remove.className='danger';remove.onclick=()=>deletePuzzle(row);
+  actions.append(resume,rename,remove);body.append(title,meta,actions);card.append(img,body);$('puzzleList').append(card);
  }
+}
+async function renamePuzzle(row){
+ const value=prompt('새 퍼즐 이름을 입력해주세요.',row['퍼즐이름']);if(value===null)return;const name=value.trim();
+ if(!name){setMessage('libraryMessage','퍼즐 이름을 입력해주세요.');return;}if(name.length>200){setMessage('libraryMessage','퍼즐 이름은 200자 이하로 입력해주세요.');return;}
+ setMessage('libraryMessage','이름을 변경하는 중…');const {error}=await db.from('퍼즐저장').update({'퍼즐이름':name,'수정시각':new Date().toISOString()}).eq('아이디',row['아이디']);
+ if(error){console.error(error);setMessage('libraryMessage','이름을 변경하지 못했습니다.');return;}
+ if(currentPuzzleId===row['아이디']){selectedName=name;$('title').textContent=name;}await loadLibrary();setMessage('libraryMessage','퍼즐 이름을 변경했습니다.','success');
 }
 async function deletePuzzle(row){
  if(!confirm(`'${row['퍼즐이름']}' 퍼즐을 삭제할까요?`))return;
