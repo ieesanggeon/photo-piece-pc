@@ -115,7 +115,7 @@ async function choose(url,name,button,kind='예제',file=null){
  $('notice').textContent='사진을 불러오는 중입니다…';
  document.querySelectorAll('.photo').forEach(b=>b.classList.toggle('selected',b===button));
  document.querySelectorAll('[data-n]').forEach(b=>b.setAttribute('aria-pressed','false'));
- const im=new Image();im.onload=()=>{if(id!==loadId)return;image=im;selectedName=name;selectedUrl=url;selectedKind=kind;selectedFile=file;$('selectedPhoto').src=url;$('selectedName').textContent=name;$('selection').hidden=false;$('selectionEmpty').hidden=true;$('pieceSettings').disabled=false;selectionStatus();};
+ const im=new Image();im.onload=()=>{if(id!==loadId)return;image=im;selectedName=name;selectedUrl=url;selectedKind=kind;selectedFile=file;$('selectedPhoto').src=url;$('selectedName').textContent=name;$('selection').hidden=false;$('selectionEmpty').hidden=true;$('pieceSettings').disabled=false;selectCount($('count').value);beginPuzzle();};
  im.onerror=()=>{if(id!==loadId)return;$('notice').textContent='사진을 불러오지 못했습니다. 다른 예제나 내 사진을 선택해주세요.';};im.src=url;
 }
 $('upload').onchange=e=>{const f=e.target.files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)){$('notice').textContent='JPG, PNG, WebP 이미지를 선택해주세요.';return;}if(f.size>10*1024*1024){$('notice').textContent='이미지는 10MB 이하만 저장할 수 있습니다.';return;}const old=blobUrl;blobUrl=URL.createObjectURL(f);choose(blobUrl,f.name,null,'업로드',f);if(old)URL.revokeObjectURL(old);};
