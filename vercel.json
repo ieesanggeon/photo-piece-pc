@@ -18,6 +18,14 @@
       "use": "@vercel/static"
     },
     {
+      "src": "favicon.png",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "site.webmanifest",
+      "use": "@vercel/static"
+    },
+    {
       "src": "google*.html",
       "use": "@vercel/static"
     },

@@ -1,0 +1,16 @@
+{
+  "name": "퍼즐 스튜디오",
+  "short_name": "퍼즐 스튜디오",
+  "description": "사진으로 만드는 나만의 온라인 퍼즐",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101012",
+  "theme_color": "#e0333d",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
